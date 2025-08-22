@@ -1,7 +1,125 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.IO;
+using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.ComTypes;
 
 namespace Sledge.Formats.Model.Source
 {
+	public class BodyPart
+	{
+		public BodyPartHeader BodyPartHeader;
+		public Model[] Models;
+		internal void ReadObjects(GCHandle handle, int parentOffset)
+		{
+			Models = new Model[BodyPartHeader.numModels];
+			var position = BodyPartHeader.modelOffset;
+			for (int i = 0; i < BodyPartHeader.numModels; i++)
+			{
+				Models[i] = new Model();
+				var offset = i * Marshal.SizeOf<ModelHeader>();
+				Models[i].ModelHeader = Marshal.PtrToStructure<ModelHeader>(handle.AddrOfPinnedObject() + parentOffset + position + offset);
+				Models[i].ReadObjects(handle, parentOffset + position + offset);
+			}
+		}
+		public class Model
+		{
+			public ModelHeader ModelHeader;
+			public ModelLOD[] LOD;
+
+			internal void ReadObjects(GCHandle handle, int parentOffset)
+			{
+				LOD = new ModelLOD[ModelHeader.numLODs];
+				var position = ModelHeader.lodOffset;
+				for (int i = 0; i < ModelHeader.numLODs; i++)
+				{
+					LOD[i] = new ModelLOD();
+					var offset = i * Marshal.SizeOf<ModelLODHeader>();
+					LOD[i].ModelLODHeader = Marshal.PtrToStructure<ModelLODHeader>(handle.AddrOfPinnedObject() + parentOffset + position + offset);
+					LOD[i].ReadObjects(handle, parentOffset + position + offset);
+				}
+			}
+
+			public class ModelLOD
+			{
+				public ModelLODHeader ModelLODHeader;
+				public Mesh[] Meshes;
+
+				internal void ReadObjects(GCHandle handle, int parentOffset)
+				{
+					Meshes = new Mesh[ModelLODHeader.numMeshes];
+					var position = ModelLODHeader.meshOffset;
+					for (int i = 0; i < ModelLODHeader.numMeshes; i++)
+					{
+						Meshes[i] = new Mesh();
+						var offset = i * Marshal.SizeOf<MeshHeader>();
+						Meshes[i].MeshHeader = Marshal.PtrToStructure<MeshHeader>(handle.AddrOfPinnedObject() + parentOffset + position + offset);
+						Meshes[i].ReadObjects(handle, parentOffset + position + offset);
+					}
+				}
+
+				public class Mesh
+				{
+					public MeshHeader MeshHeader;
+					public StripGroup[] StripGroups;
+
+					internal void ReadObjects(GCHandle handle, int parentOffset)
+					{
+						StripGroups = new StripGroup[MeshHeader.numStripGroups];
+						var position = MeshHeader.stripGroupHeaderOffset;
+						for (int i = 0; i < MeshHeader.numStripGroups; i++)
+						{
+							StripGroups[i] = new StripGroup();
+							var offset = i * Marshal.SizeOf<StripGroupHeader>();
+							StripGroups[i].StripGroupHeader = Marshal.PtrToStructure<StripGroupHeader>(handle.AddrOfPinnedObject() + parentOffset + position + offset);
+							StripGroups[i].ReadObjects(handle, parentOffset + position + offset);
+						}
+
+					}
+
+					public class StripGroup
+					{
+						public StripGroupHeader StripGroupHeader;
+						public Strip[] Strips;
+
+						internal void ReadObjects(GCHandle handle, int parentOffset)
+						{
+							Strips = new Strip[StripGroupHeader.numStrips];
+							var position = StripGroupHeader.stripOffset;
+							for (int i = 0; i < StripGroupHeader.numStrips; i++)
+							{
+								Strips[i] = new Strip();
+								var offset = i * Marshal.SizeOf<StripHeader>();
+								Strips[i].StripHeader = Marshal.PtrToStructure<StripHeader>(handle.AddrOfPinnedObject() + parentOffset + position + offset);
+								// Read vertices
+								Strips[i].Verts = new Vertex[Strips[i].StripHeader.numVerts];
+								var vertPosition = parentOffset + StripGroupHeader.vertOffset + Strips[i].StripHeader.vertOffset;
+								for (int v = 0; v < Strips[i].StripHeader.numVerts; v++)
+								{
+									var vertOffset = v * Marshal.SizeOf<Vertex>();
+									Strips[i].Verts[v] = Marshal.PtrToStructure<Vertex>(handle.AddrOfPinnedObject() + vertPosition + vertOffset);
+								}
+								// Read indices
+								Strips[i].Indices = new ushort[Strips[i].StripHeader.numIndices];
+								var indexPosition = StripGroupHeader.indexOffset + Strips[i].StripHeader.indexOffset + parentOffset;
+								for (int idx = 0; idx < Strips[i].StripHeader.numIndices; idx++)
+								{
+									var indexOffset = idx * sizeof(ushort);
+									Strips[i].Indices[idx] = (ushort)Marshal.ReadInt16(handle.AddrOfPinnedObject() + indexPosition + indexOffset);
+								}
+							}
+
+						}
+
+						public class Strip
+						{
+							public StripHeader StripHeader;
+							public Vertex[] Verts;
+							public ushort[] Indices;
+						}
+					}
+				}
+			}
+		}
+	}
 	// this structure is in <mod folder>/src/public/optimize.h
 	public struct VtxHeader
 	{
@@ -32,8 +150,6 @@ namespace Sledge.Formats.Model.Source
 		//Model array
 		public int numModels;
 		public int modelOffset;
-		public ModelHeader ModelHeader;
-
 	};
 	[StructLayout(LayoutKind.Sequential, Pack = 1)]
 	public struct ModelHeader
@@ -41,7 +157,6 @@ namespace Sledge.Formats.Model.Source
 		//LOD mesh array
 		public int numLODs;   //This is also specified in FileHeader_t
 		public int lodOffset;
-		public ModelLODHeader ModelLOD;
 	};
 	[StructLayout(LayoutKind.Sequential, Pack = 1)]
 	public struct ModelLODHeader
@@ -50,7 +165,6 @@ namespace Sledge.Formats.Model.Source
 		public int numMeshes;
 		public int meshOffset;
 		public float switchPoint;
-		public MeshHeader MeshHeader;
 	};
 
 	[StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -59,7 +173,6 @@ namespace Sledge.Formats.Model.Source
 		public int numStripGroups;
 		public int stripGroupHeaderOffset;
 		public byte flags;
-		public StripGroupHeader StripGroupHeader;
 	};
 	[StructLayout(LayoutKind.Sequential, Pack = 1)]
 	public struct StripGroupHeader
@@ -76,7 +189,6 @@ namespace Sledge.Formats.Model.Source
 
 
 		public byte flags;
-		public StripHeader StripHeader;
 
 		// The following fields are only present if MDL version is >=49
 		// Points to an array of unsigned shorts (16 bits each)
@@ -95,11 +207,6 @@ namespace Sledge.Formats.Model.Source
 		public byte flags;
 		public int numBoneStateChanges;
 		public int boneStateChangeOffset;
-
-		//[MarshalAs(UnmanagedType.ByValArray, SizeConst = 24)]
-		//public Vertex[] verts;
-		//[MarshalAs(UnmanagedType.ByValArray, SizeConst = 36)]
-		//public ushort[] indices;
 
 		// MDL Version 49 and up only
 		//public int numTopologyIndices;
