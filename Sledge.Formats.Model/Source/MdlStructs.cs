@@ -1,8 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.IO;
 using System.Numerics;
 using System.Runtime.InteropServices;
-using System.Text;
 
 namespace Sledge.Formats.Model.Source
 {
@@ -200,4 +198,146 @@ namespace Sledge.Formats.Model.Source
 		 * As of this writing, the header is 408 bytes long in total
 		 */
 	};
+	public class Bone
+	{
+		public StudioHdrBone Data { get; set; }
+		public string BoneName { get; set; }
+		internal void ReadObjects(GCHandle handle, BinaryReader br, int offset)
+		{
+			Data = Marshal.PtrToStructure<StudioHdrBone>(handle.AddrOfPinnedObject() + offset);
+			br.BaseStream.Seek(offset + Data.bone_name_offset, SeekOrigin.Begin);
+			BoneName = br.ReadNullTerminatedString();
+		}
+	}
+	public struct StudioHdrBone
+	{
+		public uint bone_name_offset;
+		public int parent;     // parent bone
+		[MarshalAs(UnmanagedType.ByValArray, SizeConst = 6)]
+		public int[] bonecontroller;  // bone controller index, -1 == none
+									  // default values
+		public Vector3 pos;
+		public Vector4 quat;
+		public Vector3 rot;
+		// compression scale
+		public Vector3 posscale;
+		public Vector3 rotscale;
+		public Matrix3x4 poseToBone;
+		public Vector4 qAlignment;
+		public int flags;
+		public int proctype;
+		public int procindex;      // procedural rule
+		public int physicsbone;    // index into physically simulated bone
+
+		public int surfacepropidx; // index into string tablefor property name
+
+		public int contents;       // See BSPFlags.h for the contents flags
+		[MarshalAs(UnmanagedType.ByValArray, SizeConst = 8)]
+		public int[] unused;      // remove as appropriate
+	}
+	public class HitboxSet
+	{
+		public StudioHdrHitboxSet Header { get; set; }
+		public string Name { get; set; }
+		public Hitbox[] Hitboxes { get; set; }
+
+		internal void ReadObjects(GCHandle handle, BinaryReader br, int offset)
+		{
+			Header = Marshal.PtrToStructure<StudioHdrHitboxSet>(handle.AddrOfPinnedObject() + offset);
+			br.BaseStream.Seek(offset + Header.sznameindex, SeekOrigin.Begin);
+			Name = br.ReadNullTerminatedString();
+			Hitboxes = new Hitbox[Header.numhitboxes];
+			for (int i = 0; i < Header.numhitboxes; i++)
+			{
+				Hitboxes[i] = new Hitbox();
+				var hitboxOffset = offset + Header.hitboxindex + i * Marshal.SizeOf<StudioHdrHitbox>();
+				Hitboxes[i].ReadObjects(handle, br, hitboxOffset);
+			}
+		}
+		public class Hitbox
+		{
+			public StudioHdrHitbox Data { get; set; }
+			public string Name { get; set; }
+			internal void ReadObjects(GCHandle handle, BinaryReader br, int offset)
+			{
+				Data = Marshal.PtrToStructure<StudioHdrHitbox>(handle.AddrOfPinnedObject() + offset);
+				br.BaseStream.Seek(Data.szhitboxnameindex, SeekOrigin.Begin);
+				Name = br.ReadNullTerminatedString();
+			}
+		}
+
+	}
+
+	public struct StudioHdrHitbox
+	{
+		public int bone;
+		public int group;              // intersection group
+		public Vector3 bbmin;              // bounding box
+		public Vector3 bbmax;
+		public int szhitboxnameindex;  // offset to the name of the hitbox.
+		[MarshalAs(UnmanagedType.ByValArray, SizeConst = 8)]
+		public int[] unused;
+
+	};
+	public struct StudioHdrHitboxSet
+	{
+		public int sznameindex;
+		public int numhitboxes;
+		public int hitboxindex;
+	};
+
+	public class AnimDescription
+	{
+		public StudioHdrAnimDesc Data { get; set; }
+		public string Name { get; set; }
+		internal void ReadObjects(GCHandle handle, BinaryReader br, int offset)
+		{
+			Data = Marshal.PtrToStructure<StudioHdrAnimDesc>(handle.AddrOfPinnedObject() + offset);
+			br.BaseStream.Seek(offset + Data.sznameindex, SeekOrigin.Begin);
+			Name = br.ReadNullTerminatedString();
+		}
+	}
+	public struct StudioHdrAnimDesc
+	{
+		public int baseptr;
+		public int sznameindex;
+		public float fps;      // frames per second	
+		public int flags;      // looping/non-looping flags
+		public int numframes;
+		
+		// piecewise movement
+		public int nummovements;
+		public int movementindex;
+		[MarshalAs(UnmanagedType.ByValArray, SizeConst = 6)]
+		public int[] unused1;         // remove as appropriate (and zero if loading older versions)	
+		public int animblock;
+		public int animindex;   // non-zero when anim data isn't in sections
+		public int numikrules;
+		public int ikruleindex;    // non-zero when IK data is stored in the mdl
+		public int animblockikruleindex; // non-zero when IK data is stored in animblock file
+		public int numlocalhierarchy;
+		public int localhierarchyindex;
+		public int sectionindex;
+		public int sectionframes; // number of frames used in each fast lookup section, zero if not used
+		public short zeroframespan;    // frames per span
+		public short zeroframecount; // number of spans
+		public int zeroframeindex;
+		public float zeroframestalltime;       // saved during read stalls
+	};
+
+	public struct Matrix3x4
+	{
+		public float m11;
+		public float m12;
+		public float m13;
+		public float m21;
+		public float m22;
+		public float m23;
+		public float m31;
+		public float m32;
+		public float m33;
+		public float m41;
+		public float m42;
+		public float m43;
+	}
 }
