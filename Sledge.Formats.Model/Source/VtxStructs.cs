@@ -188,12 +188,19 @@ namespace Sledge.Formats.Model.Source
 		public int stripOffset;
 
 
-		public byte flags;
+		public StripGroupFlags flags;
 
 		// The following fields are only present if MDL version is >=49
 		// Points to an array of unsigned shorts (16 bits each)
 		//public int numTopologyIndices;
 		//public int topologyOffset;
+	};
+	public enum StripGroupFlags : byte
+	{
+		STRIPGROUP_IS_FLEXED = 0x01,
+		STRIPGROUP_IS_HWSKINNED = 0x02,
+		STRIPGROUP_IS_DELTA_FLEXED = 0x04,
+		STRIPGROUP_SUPPRESS_HW_MORPH = 0x08,    // NOTE: This is a temporary flag used at run time.
 	};
 
 	[StructLayout(LayoutKind.Sequential, Pack = 1)]
