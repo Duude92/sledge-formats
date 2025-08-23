@@ -204,13 +204,18 @@ namespace Sledge.Formats.Model.Source
 		public int numVerts;
 		public int vertOffset;
 		public short numBones;
-		public byte flags;
+		public StripFlags flags;
 		public int numBoneStateChanges;
 		public int boneStateChangeOffset;
 
 		// MDL Version 49 and up only
 		//public int numTopologyIndices;
 		//public int topologyOffset;
+	};
+	public enum StripFlags : byte
+	{
+		STRIP_IS_TRILIST = 0x01,
+		STRIP_IS_TRISTRIP = 0x02,
 	};
 	[StructLayout(LayoutKind.Sequential, Pack = 1)]
 	public struct Vertex
