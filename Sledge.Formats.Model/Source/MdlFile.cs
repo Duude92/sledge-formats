@@ -7,6 +7,13 @@ namespace Sledge.Formats.Model.Source
 	public class MdlFile
 	{
 		public Studiohdr Header { get; set; }
+		public Bone[] Bones { get; set; }
+		// TODO: BoneControllers
+		public HitboxSet[] HitboxSets { get; set; }
+		public AnimDescription[] AnimDescriptions { get; set; }
+
+
+
 		public string[] Materials { get; set; }
 		public string MaterialDirectory { get; set; }
 
@@ -16,18 +23,42 @@ namespace Sledge.Formats.Model.Source
 
 		public MdlFile(Stream stream)
 		{
-			var headerBuf = new byte[Marshal.SizeOf<Studiohdr>()];
-			var vertexSize = Marshal.SizeOf<StudioVertex>();
-			stream.Read(headerBuf, 0, headerBuf.Length);
-			var handle = GCHandle.Alloc(headerBuf, GCHandleType.Pinned);
-			Header = Marshal.PtrToStructure<Studiohdr>(handle.AddrOfPinnedObject());
-			handle.Free();
-			var materialCount = Header.texture_count;
-			Materials = new string[materialCount];
-			stream.Seek(Header.texture_offset, SeekOrigin.Begin);
-
 			using (var br = new BinaryReader(stream))
 			{
+				var buffer = new byte[stream.Length];
+				stream.Read(buffer, 0, buffer.Length);
+				var handle = GCHandle.Alloc(buffer, GCHandleType.Pinned);
+				Header = Marshal.PtrToStructure<Studiohdr>(handle.AddrOfPinnedObject());
+
+				Bones = new Bone[Header.bone_count];
+				for (int i = 0; i < Header.bone_count; i++)
+				{
+					Bones[i] = new Bone();
+					var offset = Header.bone_offset + i * Marshal.SizeOf<StudioHdrBone>();
+
+					Bones[i].ReadObjects(handle, br, offset);
+				}
+				HitboxSets = new HitboxSet[Header.hitbox_count];
+				for (int i = 0; i < Header.hitbox_count; i++)
+				{
+					HitboxSets[i] = new HitboxSet();
+					var offset = Header.hitbox_offset + i * Marshal.SizeOf<StudioHdrHitboxSet>();
+					HitboxSets[i].ReadObjects(handle, br, offset);
+				}
+				AnimDescriptions = new AnimDescription[Header.localanim_count];
+				for (int i = 0; i < Header.localanim_count; i++)
+				{
+					AnimDescriptions[i] = new AnimDescription();
+					var offset = Header.localanim_offset + i * Marshal.SizeOf<StudioHdrAnimDesc>();
+					AnimDescriptions[i].ReadObjects(handle, br, offset);
+				}
+
+
+				var materialCount = Header.texture_count;
+				Materials = new string[materialCount];
+				stream.Seek(Header.texture_offset, SeekOrigin.Begin);
+
+
 				int texturesOffset = br.ReadInt32();
 				stream.Seek(texturesOffset + Header.texture_offset, SeekOrigin.Begin);
 				for (int i = 0; i < materialCount; i++)
@@ -38,7 +69,9 @@ namespace Sledge.Formats.Model.Source
 				var dirOffset = br.ReadInt32();
 				stream.Seek(dirOffset, SeekOrigin.Begin);
 				MaterialDirectory = br.ReadNullTerminatedString();
+				handle.Free();
 			}
+
 		}
 
 		public static MdlFile FromFile(string path)
