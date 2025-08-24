@@ -217,7 +217,7 @@ namespace Sledge.Formats.Model.Source
 		public int[] bonecontroller;  // bone controller index, -1 == none
 									  // default values
 		public Vector3 pos;
-		public Vector4 quat;
+		public Quaternion quat;
 		public Vector3 rot;
 		// compression scale
 		public Vector3 posscale;
