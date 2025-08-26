@@ -11,6 +11,7 @@ namespace Sledge.Formats.Model.Source
 		// TODO: BoneControllers
 		public HitboxSet[] HitboxSets { get; set; }
 		public AnimDescription[] AnimDescriptions { get; set; }
+		public StudioSequenceDescription[] Sequences { get; set; }
 
 
 
@@ -51,6 +52,13 @@ namespace Sledge.Formats.Model.Source
 					AnimDescriptions[i] = new AnimDescription();
 					var offset = Header.localanim_offset + i * Marshal.SizeOf<StudioHdrAnimDesc>();
 					AnimDescriptions[i].ReadObjects(handle, br, offset);
+				}
+				Sequences = new StudioSequenceDescription[Header.localseq_count];
+				for (int i = 0; i < Header.localseq_count; i++)
+				{
+					Sequences[i] = new StudioSequenceDescription();
+					var offset = Header.localseq_offset + i * Marshal.SizeOf<StudioSequenceDesc>();
+					Sequences[i].ReadObjects(handle, br, offset);
 				}
 
 
