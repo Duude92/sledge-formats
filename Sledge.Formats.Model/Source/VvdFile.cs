@@ -19,7 +19,7 @@ namespace Sledge.Formats.Model.Source
 			Header = Marshal.PtrToStructure<VvdHeader>(handle.AddrOfPinnedObject());
 			handle.Free();
 
-			var vertexCount = (Header.tangentDataStart - Header.vertexDataStart) / vertexSize;
+			var vertexCount = Header.numLODVertexes[0];
 			var vertexBuf = new byte[vertexCount * vertexSize];
 			stream.Seek(Header.vertexDataStart, SeekOrigin.Begin);
 			stream.Read(vertexBuf, 0, vertexBuf.Length);
