@@ -28,7 +28,12 @@ namespace Sledge.Formats.Model.Source
 		public Vector3 m_vecNormal;
 		public Vector2 m_vecTexCoord;
 	};
-
+	public struct VertexFixup
+	{
+		public int lod;            // used to skip culled root lod
+		public int sourceVertexID;     // absolute index from start of vertex/tangent blocks
+		public int numVertexes;
+	};
 	// 16 bytes
 	[StructLayout(LayoutKind.Sequential, Pack = 1)]
 	public struct StudioBoneWeight

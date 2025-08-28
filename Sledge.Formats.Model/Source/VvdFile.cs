@@ -10,6 +10,7 @@ namespace Sledge.Formats.Model.Source
 		public VvdHeader Header { get; set; }
 		public StudioVertex[] Vertices { get; set; }
 		public Vector4[] TangentData { get; set; }
+		public VertexFixup[] Fixups { get; set; }
 		public VvdFile(Stream stream)
 		{
 			var headerBuf = new byte[Marshal.SizeOf<VvdHeader>()];
@@ -43,6 +44,19 @@ namespace Sledge.Formats.Model.Source
 				TangentData[i] = Marshal.PtrToStructure<Vector4>(tangHandle.AddrOfPinnedObject() + offset);
 			}
 			tangHandle.Free();
+
+			var fixupSize = Marshal.SizeOf<VertexFixup>();
+			var fixupBuf = new byte[Header.numFixups * fixupSize];
+			stream.Seek(Header.fixupTableStart, SeekOrigin.Begin);
+			stream.Read(fixupBuf, 0, fixupBuf.Length);
+			var fixupHandle = GCHandle.Alloc(fixupBuf, GCHandleType.Pinned);
+			Fixups = new VertexFixup[Header.numFixups];
+			for (int i = 0; i < Header.numFixups; i++)
+			{
+				var offset = i * fixupSize;
+				Fixups[i] = Marshal.PtrToStructure<VertexFixup>(fixupHandle.AddrOfPinnedObject() + offset);
+			}
+			fixupHandle.Free();
 		}
 
 		public static VvdFile FromFile(string path)
