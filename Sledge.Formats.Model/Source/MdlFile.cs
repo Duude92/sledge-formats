@@ -12,6 +12,8 @@ namespace Sledge.Formats.Model.Source
 		public HitboxSet[] HitboxSets { get; set; }
 		public AnimDescription[] AnimDescriptions { get; set; }
 		public StudioSequenceDescription[] Sequences { get; set; }
+		public short[] SkinRef { get; set; } //??
+		public Bodypart[] Bodyparts { get; set; }
 
 
 
@@ -59,6 +61,14 @@ namespace Sledge.Formats.Model.Source
 					Sequences[i] = new StudioSequenceDescription();
 					var offset = Header.localseq_offset + i * Marshal.SizeOf<StudioSequenceDesc>();
 					Sequences[i].ReadObjects(handle, br, offset);
+				}
+
+				Bodyparts = new Bodypart[Header.bodypart_count];
+				for (int i = 0; i < Header.bodypart_count; i++)
+				{
+					Bodyparts[i] = new Bodypart();
+					var offset = Header.bodypart_offset + i * Marshal.SizeOf<StudioBodypart>();
+					Bodyparts[i].ReadObjects(handle, br, offset);
 				}
 
 

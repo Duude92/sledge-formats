@@ -97,8 +97,8 @@ namespace Sledge.Formats.Model.Source
 		public Vector3 view_bbmax;     // which is used for view culling
 
 		public StudioHdrFlags flags;          // Binary flags in little-endian order. 
-								   // ex (0x010000C0) means flags for position 0, 30, and 31 are set. 
-								   // Set model flags section for more information
+											  // ex (0x010000C0) means flags for position 0, 30, and 31 are set. 
+											  // Set model flags section for more information
 
 		/*
 		 * After this point, the header contains many references to offsets
@@ -561,5 +561,240 @@ namespace Sledge.Formats.Model.Source
 		public float m41;
 		public float m42;
 		public float m43;
+	}
+
+	public struct StudioMeshData
+	{
+		// indirection to this mesh's model's vertex data
+		//#ifndef PLATFORM_64BITS
+		public int modelVertexDataIndex;
+		//	const mstudio_modelvertexdata_t	*modelvertexdata;
+		//#else
+		//	int unused_modelvertexdata;
+		//#endif
+
+		// used for fixup calcs when culling top level lods
+		// expected number of mesh verts at desired lod
+		[MarshalAs(UnmanagedType.ByValArray, SizeConst = 8)]
+		public int[] numLODVertexes;
+
+		//#ifdef PLATFORM_64BITS
+		//	serializedstudioptr_t< const mstudio_modelvertexdata_t >	modelvertexdata;
+		//#endif
+	};
+	[StructLayout(LayoutKind.Sequential, Pack = 1)]
+	public struct StudioFlex
+	{
+		public int flexdesc;   // input value
+		public float target0;  // zero
+		public float target1;  // one
+		public float target2;  // one
+		public float target3;  // zero
+		public int numverts;
+		public int vertindex;
+		public int flexpair;   // second flex desc
+		public char vertanimtype; // See StudioVertAnimType_t
+		[MarshalAs(UnmanagedType.ByValArray, SizeConst = 3)]
+		char[] unusedchar;
+		[MarshalAs(UnmanagedType.ByValArray, SizeConst = 6)]
+		int[] unused;
+	};
+
+	public struct StudioMesh
+	{
+		public int material;
+		public int modelindex;
+		public int numvertices;        // number of unique vertices/normals/texcoords
+		public int vertexoffset;       // vertex mstudiovertex_t
+		public int numflexes;          // vertex animation
+		public int flexindex;
+
+		// special codes for material operations
+		public int materialtype;
+		public int materialparam;
+
+		// a unique ordinal for this mesh
+		public int meshid;
+		public Vector3 center;
+		public StudioMeshData vertexdata;
+
+		//#ifdef PLATFORM_64BITS
+		//	int					unused[6]; // remove as appropriate
+		//#else
+		[MarshalAs(UnmanagedType.ByValArray, SizeConst = 8)]
+		int[] unused; // remove as appropriate
+					   //#endif
+
+	};
+	[StructLayout(LayoutKind.Sequential, Pack = 1)]
+	public struct StudioEyeball
+	{
+		public int sznameindex;
+		public int bone;
+		public Vector3 org;
+		public float zoffset;
+		public float radius;
+		public Vector3 up;
+		public Vector3 forward;
+		public int texture;
+		public int unused1;
+		public float iris_scale;
+		public int unused2;
+		[MarshalAs(UnmanagedType.ByValArray, SizeConst = 3)]
+		public int[] upperflexdesc;   // index of raiser, neutral, and lowerer flexdesc that is set by flex controllers
+		[MarshalAs(UnmanagedType.ByValArray, SizeConst = 3)]
+		public int[] lowerflexdesc;
+		[MarshalAs(UnmanagedType.ByValArray, SizeConst = 3)]
+		public float[] uppertarget;       // angle (radians) of raised, neutral, and lowered lid positions
+		[MarshalAs(UnmanagedType.ByValArray, SizeConst = 3)]
+		public float lowertarget;
+		public int[] upperlidflexdesc;   // index of flex desc that actual lid flexes look to
+		public int lowerlidflexdesc;
+		[MarshalAs(UnmanagedType.ByValArray, SizeConst = 4)]
+		public int[] unused;          // These were used before, so not guaranteed to be 0
+		public bool m_bNonFACS;            // Never used before version 44
+		[MarshalAs(UnmanagedType.ByValArray, SizeConst = 3)]
+		public char[] unused3;
+		[MarshalAs(UnmanagedType.ByValArray, SizeConst = 7)]
+		public int[] unused4;
+	};
+	public struct mstudio_modelvertexdata_t
+	{
+
+		// base of external vertex data stores
+		int pVertexData;
+		int pTangentData;
+	};
+	[StructLayout(LayoutKind.Sequential, Pack = 1)]
+	public struct StudioModel
+	{
+		[MarshalAs(UnmanagedType.ByValArray, SizeConst = 64)]
+		public char[] name;
+		public int type;
+		public float boundingradius;
+		public int nummeshes;
+		public int meshindex;
+
+	// cache purposes
+		public int numvertices;        // number of unique vertices/normals/texcoords
+		public int vertexindex;        // vertex Vector
+		public int tangentsindex;      // tangents Vector
+		public int numattachments;
+		public int attachmentindex;
+		public int numeyeballs;
+		public int eyeballindex;
+
+		public mstudio_modelvertexdata_t vertexdata;
+
+		//#ifdef PLATFORM_64BITS
+		//	int					unused[6];		// mstudio_modelvertexdata_t has 2 naked ptrs
+		//#else
+		//int unused[8];      // remove as appropriate
+							//#endif
+	};
+
+	public struct StudioBodypart
+	{
+		public int sznameindex;
+		public int nummodels;
+		public int baseIndex;
+		public int modelindex; // index into models array
+	};
+
+	public class Bodypart
+	{
+		public StudioBodypart Header { get; set; }
+		public string Name { get; set; }
+		public StudioModel[] Models { get; set; }
+		internal void ReadObjects(GCHandle handle, BinaryReader br, int offset)
+		{
+			Header = Marshal.PtrToStructure<StudioBodypart>(handle.AddrOfPinnedObject() + offset);
+			br.BaseStream.Seek(offset + Header.sznameindex, SeekOrigin.Begin);
+			Name = br.ReadNullTerminatedString();
+			Models = new StudioModel[Header.nummodels];
+			for (int i = 0; i < Header.nummodels; i++)
+			{
+				Models[i] = new StudioModel();
+				var modelOffset = offset + Header.modelindex + i * Marshal.SizeOf<Source.StudioModel>();
+				Models[i].ReadObjects(handle, br, modelOffset);
+			}
+		}
+
+		public class StudioModel
+		{
+			public Source.StudioModel Data { get; set; }
+			public string Name { get; set; }
+			public StudioMesh[] Meshes { get; set; }
+			public StudioEyeball[] Eyeballs { get; set; }
+			internal void ReadObjects(GCHandle handle, BinaryReader br, int offset)
+			{
+				Data = Marshal.PtrToStructure<Sledge.Formats.Model.Source.StudioModel>(handle.AddrOfPinnedObject() + offset);
+				Name = new string(Data.name).TrimEnd('\0');
+				Meshes = new StudioMesh[Data.nummeshes];
+				for (int i = 0; i < Data.nummeshes; i++)
+				{
+					Meshes[i] = new StudioMesh();
+					var meshOffset = offset + Data.meshindex + i * Marshal.SizeOf<Source.StudioMesh>();
+					Meshes[i].ReadObjects(handle, br, meshOffset);
+				}
+				Eyeballs = new StudioEyeball[Data.numeyeballs];
+				for (int i = 0; i < Data.numeyeballs; i++)
+				{
+					Eyeballs[i] = new StudioEyeball();
+					var eyeballOffset = offset + Data.eyeballindex + i * Marshal.SizeOf<Source.StudioEyeball>();
+					Eyeballs[i].ReadObjects(handle, br, eyeballOffset);
+				}
+			}
+			public class StudioMesh
+			{
+				public Source.StudioMesh Data { get; set; }
+				public string MaterialName { get; set; }
+				public StudioFlex[] Flexes { get; set; }
+				public StudioMeshData VertexData { get; set; }
+				internal void ReadObjects(GCHandle handle, BinaryReader br, int offset)
+				{
+					Data = Marshal.PtrToStructure<Sledge.Formats.Model.Source.StudioMesh>(handle.AddrOfPinnedObject() + offset);
+					br.BaseStream.Seek(offset + Data.material, SeekOrigin.Begin);
+					MaterialName = br.ReadNullTerminatedString();
+					Flexes = new StudioFlex[Data.numflexes];
+					for (int i = 0; i < Data.numflexes; i++)
+					{
+						Flexes[i] = new StudioFlex();
+						var flexOffset = offset + Data.flexindex + i * Marshal.SizeOf<Source.StudioFlex>();
+						Flexes[i].ReadObjects(handle, br, flexOffset);
+					}
+					VertexData = new StudioMeshData();
+					var vertexDataOffset = offset + Marshal.SizeOf<Sledge.Formats.Model.Source.StudioMesh>();
+					VertexData.ReadObjects(handle, br, vertexDataOffset);
+				}
+				public class StudioFlex
+				{
+					public Source.StudioFlex Data { get; set; }
+					internal void ReadObjects(GCHandle handle, BinaryReader br, int offset)
+					{
+						Data = Marshal.PtrToStructure<Sledge.Formats.Model.Source.StudioFlex>(handle.AddrOfPinnedObject() + offset);
+					}
+				}
+				public class StudioMeshData
+				{
+					public Source.StudioMeshData Data { get; set; }
+					internal void ReadObjects(GCHandle handle, BinaryReader br, int offset)
+					{
+						Data = Marshal.PtrToStructure<Sledge.Formats.Model.Source.StudioMeshData>(handle.AddrOfPinnedObject() + offset);
+					}
+				}
+			}
+			public class StudioEyeball
+			{
+				public Source.StudioEyeball Data { get; set; }
+				public string Name { get; set; }
+				internal void ReadObjects(GCHandle handle, BinaryReader br, int offset)
+				{
+					Data = Marshal.PtrToStructure<Sledge.Formats.Model.Source.StudioEyeball>(handle.AddrOfPinnedObject() + offset);
+					br.BaseStream.Seek(offset + Data.sznameindex, SeekOrigin.Begin);
+					Name = br.ReadNullTerminatedString();
+				}
+			}
+		}
 	}
 }
