@@ -1,5 +1,8 @@
 ﻿using Sledge.Formats.FileSystem;
+using Sledge.Formats.Model.Goldsource;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 
 namespace Sledge.Formats.Model.Source
@@ -15,14 +18,41 @@ namespace Sledge.Formats.Model.Source
 		public short[] SkinRef { get; set; } //??
 		public Bodypart[] Bodyparts { get; set; }
 
-
-
 		public string[] Materials { get; set; }
 		public string MaterialDirectory { get; set; }
 
 		public VtxFile VtxFile { get; set; }
 		public VvdFile VvdFile { get; set; }
 
+		public MeshVertex[] GetVertices()
+		{
+			if (VvdFile.Header.numFixups != 0)
+			{
+				var vertices = new List<MeshVertex>();
+				foreach (var fixup in VvdFile.Fixups)
+				{
+					for (var vi = 0; vi < fixup.numVertexes; vi++)
+					{
+						var v = VvdFile.Vertices[vi + fixup.sourceVertexID];
+						vertices.Add(new MeshVertex
+						{
+							Vertex = v.m_vecPosition,
+							Normal = v.m_vecNormal,
+							Texture = v.m_vecTexCoord,
+							VertexBone = v.m_BoneWeights.bone[0],
+						});
+					}
+				}
+				return vertices.ToArray();
+			}
+			return VvdFile.Vertices.Select(v => new MeshVertex
+			{
+				Vertex = v.m_vecPosition,
+				Normal = v.m_vecNormal,
+				Texture = v.m_vecTexCoord,
+				VertexBone = v.m_BoneWeights.bone[0],
+			}).ToArray();
+		}
 
 		public MdlFile(Stream stream)
 		{
