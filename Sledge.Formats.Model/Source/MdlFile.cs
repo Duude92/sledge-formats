@@ -23,7 +23,11 @@ namespace Sledge.Formats.Model.Source
 
 		public VtxFile VtxFile { get; set; }
 		public VvdFile VvdFile { get; set; }
+
+		public int BodypartCount => Header.bodypart_count;
 		public int LodCount => VtxFile.Header.numLODs;
+		public int GetModelCount(int bodypart) => Bodyparts[bodypart].Header.nummodels;
+		public int GetMeshCount(int bodypart, int model) => Bodyparts[bodypart].Models[model].Data.nummeshes;
 
 
 		public MeshVertex[] GetVertices()
