@@ -53,6 +53,13 @@ namespace Sledge.Formats.Model.Source
 				VertexBone = v.m_BoneWeights.bone[0],
 			}).ToArray();
 		}
+		public ushort[] GetIndices(int meshIndex = 0, int lodIndex = 0, int modelIndex = 0, int bodyPart = 0)
+		{
+			var mesh = VtxFile.BodyParts[bodyPart].Models[modelIndex].LOD[lodIndex].Meshes[meshIndex];
+			var vertexOffset = Bodyparts[bodyPart].Models[modelIndex].Meshes[meshIndex].Data.vertexoffset;
+			return mesh.StripGroups.SelectMany(sg => sg.Strips.SelectMany(s => s.Indices.Select(x => (ushort)(s.Verts[x].origMeshVertID + vertexOffset)))).ToArray();
+		}
+		public int GetLodCount() => VtxFile.Header.numLODs;
 
 		public MdlFile(Stream stream)
 		{
