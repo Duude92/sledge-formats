@@ -65,6 +65,7 @@ namespace Sledge.Formats.Model.Source
 			var vertexOffset = Bodyparts[bodyPart].Models[modelIndex].Meshes[meshIndex].Data.vertexoffset;
 			return mesh.StripGroups.SelectMany(sg => sg.Strips.SelectMany(s => s.Indices.Select(x => (ushort)(s.Verts[x].origMeshVertID + vertexOffset)))).ToArray();
 		}
+		public int GetMaterialIndex(int meshIndex = 0, int modelIndex = 0, int bodyPart = 0) => Bodyparts[bodyPart].Models[modelIndex].Meshes[meshIndex].Data.material;
 
 		public MdlFile(Stream stream)
 		{
