@@ -13,50 +13,36 @@ namespace Sledge.Formats.Model.Source
 		public VertexFixup[] Fixups { get; set; }
 		public VvdFile(Stream stream)
 		{
-			var headerBuf = new byte[Marshal.SizeOf<VvdHeader>()];
+			var buffer = new byte[stream.Length];
+			stream.Read(buffer, 0, buffer.Length);
+			var handle = GCHandle.Alloc(buffer, GCHandleType.Pinned);
 			var vertexSize = Marshal.SizeOf<StudioVertex>();
-			stream.Read(headerBuf, 0, headerBuf.Length);
-			var handle = GCHandle.Alloc(headerBuf, GCHandleType.Pinned);
 			Header = Marshal.PtrToStructure<VvdHeader>(handle.AddrOfPinnedObject());
-			handle.Free();
 
 			var vertexCount = Header.numLODVertexes[0];
-			var vertexBuf = new byte[vertexCount * vertexSize];
-			stream.Seek(Header.vertexDataStart, SeekOrigin.Begin);
-			stream.Read(vertexBuf, 0, vertexBuf.Length);
-			var vertexHandle = GCHandle.Alloc(vertexBuf, GCHandleType.Pinned);
 			Vertices = new StudioVertex[vertexCount];
 			for(int i = 0; i < vertexCount; i++)
 			{
 				var offset = i * vertexSize;
-				Vertices[i] = Marshal.PtrToStructure<StudioVertex>(vertexHandle.AddrOfPinnedObject() + offset);
+				Vertices[i] = Marshal.PtrToStructure<StudioVertex>(handle.AddrOfPinnedObject() + offset + Header.vertexDataStart);
 			}
-			vertexHandle.Free();
-
-			var tangentBuf = new byte[Marshal.SizeOf<Vector4>()];
 			var tangentSize = Marshal.SizeOf<Vector4>();
-			stream.Read(tangentBuf, 0, tangentBuf.Length);
-			var tangHandle = GCHandle.Alloc(tangentBuf, GCHandleType.Pinned);
+			var tangentOffset = Header.vertexDataStart + vertexCount * vertexSize;
 			TangentData = new Vector4[vertexCount];
 			for (int i = 0; i < vertexCount; i++)
 			{
 				var offset = i * tangentSize;
-				TangentData[i] = Marshal.PtrToStructure<Vector4>(tangHandle.AddrOfPinnedObject() + offset);
+				TangentData[i] = Marshal.PtrToStructure<Vector4>(handle.AddrOfPinnedObject() + offset + tangentOffset);
 			}
-			tangHandle.Free();
 
 			var fixupSize = Marshal.SizeOf<VertexFixup>();
-			var fixupBuf = new byte[Header.numFixups * fixupSize];
-			stream.Seek(Header.fixupTableStart, SeekOrigin.Begin);
-			stream.Read(fixupBuf, 0, fixupBuf.Length);
-			var fixupHandle = GCHandle.Alloc(fixupBuf, GCHandleType.Pinned);
 			Fixups = new VertexFixup[Header.numFixups];
 			for (int i = 0; i < Header.numFixups; i++)
 			{
 				var offset = i * fixupSize;
-				Fixups[i] = Marshal.PtrToStructure<VertexFixup>(fixupHandle.AddrOfPinnedObject() + offset);
+				Fixups[i] = Marshal.PtrToStructure<VertexFixup>(handle.AddrOfPinnedObject() + offset + Header.fixupTableStart);
 			}
-			fixupHandle.Free();
+			handle.Free();
 		}
 
 		public static VvdFile FromFile(string path)
